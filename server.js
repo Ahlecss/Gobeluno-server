@@ -108,7 +108,6 @@ io.on('connection', (socket) => {
         socket.emit('joinGameStatus', { message: `Welcome, ${name}!` });
         io.emit('updatePlayers', [...players]); // Envoie une copie propre
     });
-    
 
     socket.on('playerReady', () => {
         let player = players.find(player => player.id === socket.id);
@@ -132,9 +131,12 @@ io.on('connection', (socket) => {
             discardPile.push(card);
             players[currentPlayer].hand = players[currentPlayer].hand.filter(c => c !== card);
             handleSpecialCard(card);
+            const previousPlayer = players[currentPlayer]
             currentPlayer = (currentPlayer + direction + players.length) % players.length;
-            console.log(currentPlayer)
-            io.emit('cardPlayed', { card, currentPlayer, discardPile });
+            console.log(previousPlayer)
+
+            console.log(players[currentPlayer].id)
+            io.emit('cardPlayed', { card, currentPlayer, previousPlayer, discardPile });
             io.emit('updatePlayers', players);  // Notify all players of the updated player list
         }
     });
@@ -146,8 +148,8 @@ io.on('connection', (socket) => {
         let drawnCard = deck.pop();
         players[currentPlayer].hand.push(drawnCard);
         console.log(drawnCard)
-        io.emit('cardDrawn', { playerId: socket.id, drawnCard });
         currentPlayer = (currentPlayer + direction + players.length) % players.length;
+        io.emit('cardDrawn', { playerId: socket.id, drawnCard, currentPlayer });
         io.emit('updatePlayers', players);  // Notify all players of the updated player list
     });
 
