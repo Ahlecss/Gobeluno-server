@@ -34,6 +34,9 @@ function createDeck() {
     ['wild', '+4'].forEach(special => {
         for (let i = 0; i < 4; i++) newDeck.push({ color: 'wild', value: special });
     });
+
+    for (let i = 0; i < newDeck.length; i++) newDeck[i]['id'] = i;
+
     return newDeck.sort(() => Math.random() - 0.5);
 }
 
@@ -129,7 +132,7 @@ io.on('connection', (socket) => {
         let lastCard = discardPile[discardPile.length - 1];
         if (card.color === lastCard.color || card.value === lastCard.value || card.color === 'wild') {
             discardPile.push(card);
-            players[currentPlayer].hand = players[currentPlayer].hand.filter(c => c !== card);
+            players[currentPlayer].hand = players[currentPlayer].hand.filter(c => c.id !== card.id);
             handleSpecialCard(card);
             const previousPlayer = players[currentPlayer]
             currentPlayer = (currentPlayer + direction + players.length) % players.length;
