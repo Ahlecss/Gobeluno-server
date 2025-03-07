@@ -79,7 +79,7 @@ function handleSpecialCard(card) {
             break;
         case '+2':
             currentPlayer = (currentPlayer + direction + 2 * players.length) % players.length;
-            break;
+            return(2);
         case 'wild':
         case '+4':
             break;
@@ -133,9 +133,17 @@ io.on('connection', (socket) => {
         if (card.color === lastCard.color || card.value === lastCard.value || card.color === 'wild') {
             discardPile.push(card);
             players[currentPlayer].hand = players[currentPlayer].hand.filter(c => c.id !== card.id);
-            handleSpecialCard(card);
             const previousPlayer = players[currentPlayer]
             currentPlayer = (currentPlayer + direction + players.length) % players.length;
+            
+            // Check if there's a special treatment for this card
+            let specialCardHandlingReturn = handleSpecialCard(card)
+            // If yes, get how many cards have to be drawn
+            if(specialCardHandlingReturn){
+                // Force the draw of those cards
+                forceDraw(specialCardHandlingReturn, currentPlayer)
+            }
+            
             console.log(previousPlayer)
 
             console.log(players[currentPlayer].id)
@@ -143,6 +151,19 @@ io.on('connection', (socket) => {
             io.emit('updatePlayers', players);  // Notify all players of the updated player list
         }
     });
+
+    function forceDraw(cardQuantity, targetedPlayer){
+        for(let i = 0; i < cardQuantity; i++){
+            console.log('forced draw')
+            let drawnCard = deck.pop();
+            // nextPlayer = (currentPlayer + direction + players.length) % players.length;
+            players[targetedPlayer].hand.push(drawnCard);
+            console.log(drawnCard)
+            // currentPlayer = (currentPlayer + direction + players.length) % players.length;
+            io.emit('cardDrawn', { playerId: socket.id, drawnCard, currentPlayer });
+            io.emit('updatePlayers', players);  // Notify all players of the updated player list
+        }
+    }
 
     socket.on('drawCard', () => {
         console.log('draw')
