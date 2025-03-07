@@ -78,7 +78,6 @@ function handleSpecialCard(card) {
             direction = -direction;
             break;
         case '+2':
-            currentPlayer = (currentPlayer + direction + 2 * players.length) % players.length;
             return(2);
         case 'wild':
         case '+4':
@@ -135,7 +134,6 @@ io.on('connection', (socket) => {
             players[currentPlayer].hand = players[currentPlayer].hand.filter(c => c.id !== card.id);
             const previousPlayer = players[currentPlayer]
             currentPlayer = (currentPlayer + direction + players.length) % players.length;
-            
             // Check if there's a special treatment for this card
             let specialCardHandlingReturn = handleSpecialCard(card)
             // If yes, get how many cards have to be drawn
@@ -143,9 +141,7 @@ io.on('connection', (socket) => {
                 // Force the draw of those cards
                 forceDraw(specialCardHandlingReturn, currentPlayer)
             }
-            
             console.log(previousPlayer)
-
             console.log(players[currentPlayer].id)
             io.emit('cardPlayed', { card, currentPlayer, previousPlayer, discardPile });
             io.emit('updatePlayers', players);  // Notify all players of the updated player list
