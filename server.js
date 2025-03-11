@@ -18,6 +18,7 @@ let players = [];
 let deck = [];
 let discardPile = [];
 let currentPlayer = 0;
+let previousPlayer;
 let direction = 1;
 let gameInProgress = false;
 let allPlayersReady = false;
@@ -78,10 +79,11 @@ function handleSpecialCard(card) {
             direction = -direction;
             break;
         case '+2':
-            return(2);
+            return('2');
         case 'wild':
+            return('cs0')
         case '+4':
-            break;
+            return('cs4')
         default:
             break;
     }
@@ -132,33 +134,74 @@ io.on('connection', (socket) => {
         if (card.color === lastCard.color || card.value === lastCard.value || card.color === 'wild') {
             discardPile.push(card);
             players[currentPlayer].hand = players[currentPlayer].hand.filter(c => c.id !== card.id);
-            const previousPlayer = players[currentPlayer]
-            currentPlayer = (currentPlayer + direction + players.length) % players.length;
-            // Check if there's a special treatment for this card
-            let specialCardHandlingReturn = handleSpecialCard(card)
-            // If yes, get how many cards have to be drawn
-            if(specialCardHandlingReturn){
-                // Force the draw of those cards
-                forceDraw(specialCardHandlingReturn, currentPlayer)
+
+            // Check if there's a special event for this card
+            let specialEvent = handleSpecialCard(card)
+            if(specialEvent){
+                // If yes, handle this special event
+                handleSpecialEvent(specialEvent, currentPlayer, card)
+            }else{
+                goToNextPlayer()
+                emitCardAndRefresh(card)
             }
-            console.log(previousPlayer)
-            console.log(players[currentPlayer].id)
-            io.emit('cardPlayed', { card, currentPlayer, previousPlayer, discardPile });
-            io.emit('updatePlayers', players);  // Notify all players of the updated player list
         }
     });
+
+    socket.on('colorSwitch', (color) => {
+        console.log('Asked for color switch', color)
+        // Get current discardCard
+        let discardCard = discardPile[discardPile.length - 1];
+        // Change its color
+        discardCard.color = color
+        // Emit a color switch event with the new discardCard
+        io.emit('colorSwitched', discardCard)
+        goToNextPlayer()
+        emitCardAndRefresh(discardCard)
+    })
 
     function forceDraw(cardQuantity, targetedPlayer){
         for(let i = 0; i < cardQuantity; i++){
             console.log('forced draw')
             let drawnCard = deck.pop();
-            // nextPlayer = (currentPlayer + direction + players.length) % players.length;
             players[targetedPlayer].hand.push(drawnCard);
             console.log(drawnCard)
-            // currentPlayer = (currentPlayer + direction + players.length) % players.length;
             io.emit('cardDrawn', { playerId: socket.id, drawnCard, currentPlayer });
             io.emit('updatePlayers', players);  // Notify all players of the updated player list
         }
+    }
+
+    function handleSpecialEvent(specialEventCode, currentPlayer, card){
+        /* 
+            The special event code can be read like this :
+            If the two first characters are 'cs' it means a color switch event is needed
+            The last character is a number, it's the number of card next player have to draw
+        */
+        const code = specialEventCode
+        const cardsToDraw = Number(code.substr(code.length - 1))
+        const eventName = code.substr(0,2)
+        const targetedPlayer = (currentPlayer + direction + players.length) % players.length;
+
+        if(eventName === 'cs'){
+            forceDraw(cardsToDraw, targetedPlayer)
+            socket.emit('askForColorSwitch');
+            emitCardAndRefresh(card);
+        }else{
+            forceDraw(cardsToDraw, targetedPlayer)
+            goToNextPlayer()
+            emitCardAndRefresh(card)
+        }
+    }
+
+    function goToNextPlayer(){
+        previousPlayer = players[currentPlayer]
+        currentPlayer = (currentPlayer + direction + players.length) % players.length;
+        console.log(previousPlayer)
+        console.log(players[currentPlayer].id)
+    }
+
+    function emitCardAndRefresh(card){
+        io.emit('cardPlayed', { card, currentPlayer, previousPlayer, discardPile });
+        io.emit('updatePlayers', players);  // Notify all players of the updated player list
     }
 
     socket.on('drawCard', () => {
@@ -172,6 +215,7 @@ io.on('connection', (socket) => {
         io.emit('cardDrawn', { playerId: socket.id, drawnCard, currentPlayer });
         io.emit('updatePlayers', players);  // Notify all players of the updated player list
     });
+
 
     socket.on('disconnect', () => {
         players = players.filter(player => player.id !== socket.id);
